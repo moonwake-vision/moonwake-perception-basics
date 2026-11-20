@@ -38,12 +38,42 @@ BuoyOffset compute_buoy_offset(
   // =========================================================================
 
   // TODO [Task 01]: 移除以下临时桩代码，并根据上述说明补充完整逻辑
-  (void)det;
-  (void)image_width;
-  (void)conf_threshold;
-  (void)center_tolerance_norm;
+    
+
+  // 1. 输入防御：宽度非法 / 目标缺失 → 返回默认的无效结果
+  if (image_width <= 0) {
+    return out;
+  }
+  if (!det.has_value()) {
+    return out;
+  }
+
+  const Detection& d = *det;
+
+  // 2. 置信度门控：低于阈值视为不可信
+  if (d.confidence < conf_threshold) {
+    return out;
+  }
+
+  // 3. 几何偏移计算
+  const double center_x = static_cast<double>(image_width) * 0.5;
+  out.dx_px = d.cx - center_x;
+  out.dx_norm = out.dx_px / center_x;
+  out.confidence = d.confidence;
+  out.stamp_ns = d.stamp_ns;
+  out.valid = true;
+
+  // 4. 方位判定：先判容差带，再判左右
+  if (std::fabs(out.dx_norm) <= center_tolerance_norm) {
+    out.side = BuoySide::Center;
+  } else if (out.dx_norm < 0.0) {
+    out.side = BuoySide::Left;
+  } else {
+    out.side = BuoySide::Right;
+  }
 
   return out;
+
 }
 
 }  // namespace moonwake
